@@ -2,12 +2,15 @@
   "name": "graphologue",
   "version": "0.3.0",
   "private": true,
+  "author": "Peiling Jiang",
+  "description": "Use GPT-4 to stream diagrams, instead of tokens, in real-time!",
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.14.9",
     "@mui/material": "^5.14.10",
     "dagre": "^0.8.5",
+    "history": "^5.3.0",
     "openai": "^4.8.0",
     "react": "^18.2.0",
     "react-color": "^2.19.3",
@@ -27,6 +30,8 @@
     "start:netlify": "netlify dev",
     "start:server": "python server/main.py",
     "build": "GENERATE_SOURCEMAP=false REACT_APP_DEV_IDE=code react-scripts build",
+    "start:electron": "ELECTRON_START_URL=http://localhost:3000 && electron --trace-warnings ./public/electron.js",
+    "electron": "PUBLIC_URL=./ npm run build && electron-builder",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,html,scss}\"",
     "prepare": "husky install"
   },
@@ -58,6 +63,8 @@
     "@types/react-dom": "^18.2.7",
     "@types/tinycolor2": "^1.4.4",
     "@types/uuid": "^9.0.4",
+    "electron": "^26.3.0",
+    "electron-builder": "^24.6.4",
     "husky": "^8.0.3",
     "lint-staged": "^14.0.1",
     "netlify-cli": "^16.3.6",
@@ -67,5 +74,15 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,md,html,scss}": "prettier --write"
+  },
+  "build": {
+    "appId": "app.graphologue",
+    "productName": "Graphologue",
+    "mac": {
+      "icon": "./build/mac.icns"
+    },
+    "files": [
+      "./build/**/*"
+    ]
   }
 }
