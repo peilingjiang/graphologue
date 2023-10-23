@@ -309,28 +309,23 @@ export const answerObjectsToReactFlowObject = (
     // eliminate orphan nodes
     const { id } = nodeEntity
 
-    if (id === '$N1') return true
+    return true
 
-    if (nodeEntities.length === 1 && collapsedHiddenNodeIds.size !== 0)
-      return true
+    // if (id === '$N1') return true
 
-    if (collapsedHiddenNodeIds.has(id)) return false
-
-    // if (
-    //   highlightedCoReferenceOriginRanges.some(range =>
-    //     range.nodeIds.includes(id)
-    //   )
-    // )
+    // if (nodeEntities.length === 1 && collapsedHiddenNodeIds.size !== 0)
     //   return true
 
-    return (
-      // that's all edges
-      filteredEdgeEntities.find(
-        edgeEntity =>
-          edgeEntity.edgePairs[0].sourceId === id ||
-          edgeEntity.edgePairs[0].targetId === id
-      ) !== undefined
-    )
+    // if (collapsedHiddenNodeIds.has(id)) return false
+
+    // return (
+    //   // that's all edges
+    //   filteredEdgeEntities.find(
+    //     edgeEntity =>
+    //       edgeEntity.edgePairs[0].sourceId === id ||
+    //       edgeEntity.edgePairs[0].targetId === id
+    //   ) !== undefined
+    // )
   })
 
   // ! construct positioned graph

@@ -2,7 +2,8 @@ $magic-tag-color: $mid-grey;
 $magic-tag-color-hover: $grey;
 
 .magic-toolbox {
-  display: flex;
+  display: none;
+  // display: flex;
   align-items: center;
   justify-content: center;
 

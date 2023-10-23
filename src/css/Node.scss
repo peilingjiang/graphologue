@@ -57,6 +57,10 @@ $shadow-node-selected: $shadow-heavy;
       transform $transition-normal;
 
     .node-label {
+      font-size: $font-size-default !important;
+      font-weight: 400 !important;
+      transform: scale(1.1);
+
       transition: opacity $transition-normal ease,
         transform $transition-normal ease, font-size $transition-normal ease;
     }
@@ -213,7 +217,7 @@ $shadow-node-selected: $shadow-heavy;
     top: 50%;
     left: 0;
     transform: translate(-50%, -50%);
-    border: $light solid rem-to-px(2rem);
+    border: $light-grey solid rem-to-px(2rem);
     // border: none;
     border-radius: 50%;
     opacity: 1;

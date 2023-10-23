@@ -41,7 +41,7 @@ code {
   visibility: hidden;
 
   &::after {
-    content: 'React Flow';
+    // content: 'React Flow';
     visibility: visible;
     color: $light-grey;
   }

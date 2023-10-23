@@ -841,7 +841,7 @@ const Flow = () => {
           style={reactFlowWrapperStyle}
           fitView={false}
           attributionPosition="bottom-right"
-          maxZoom={1}
+          maxZoom={2}
           // edge specs
           elevateEdgesOnSelect={false}
           defaultEdgeOptions={customEdgeOptions} // adding a new edge with this configs without notice
@@ -925,7 +925,7 @@ const Flow = () => {
             //   return 'none'
             // }}
           /> */}
-          <CustomControls
+          {/* <CustomControls
             nodes={nodes}
             edges={edges}
             selectedComponents={selectedComponents}
@@ -936,8 +936,8 @@ const Flow = () => {
             flowWrapperRef={reactFlowWrapper}
             // notesOpened={notesOpened}
             // setNotesOpened={setNotesOpened}
-          />
-          <Background color="#008ddf" />
+          /> */}
+          {/* <Background color="#008ddf" /> */}
         </ReactFlow>
       </div>
     </FlowContext.Provider>

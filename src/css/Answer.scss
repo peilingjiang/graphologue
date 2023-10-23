@@ -142,8 +142,8 @@
 
       overflow: hidden;
       background-color: $white;
-      border-radius: $radius-default;
-      outline: 1px solid $light-grey;
+      // border-radius: $radius-default;
+      // outline: 1px solid $light-grey;
     }
 
     &.merged-diagram-wrapper {
@@ -363,16 +363,16 @@
 .playground .react-flow-wrapper {
   flex-grow: 1;
 
-  height: 90vh;
-  max-height: 60rem;
-  width: 100%;
+  height: 45rem;
+  // max-height: 60rem;
+  width: 80rem;
   padding: 0;
   margin: 0;
 
   overflow: hidden;
   background-color: $white;
-  border-radius: $radius-default;
-  outline: 1px solid $light-grey;
+  // border-radius: $radius-default;
+  // outline: 1px solid $light-grey;
 }
 
 .playground .merged-diagram-wrapper {
