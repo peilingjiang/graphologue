@@ -101,11 +101,11 @@ const Flow = () => {
   const [edges, , onEdgesChange] = useEdgesState(defaultEdges)
 
   const defaultViewport = {
-    x: (window.innerWidth * 0.5) / 2,
-    y: Math.min(window.innerHeight * 0.3, 1000) / 2,
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
     // x: 0,
     // y: 0,
-    zoom: 1,
+    zoom: 2,
   }
 
   /* -------------------------------------------------------------------------- */
@@ -764,7 +764,7 @@ const Flow = () => {
           style={reactFlowWrapperStyle}
           fitView={false}
           attributionPosition="bottom-right"
-          maxZoom={1}
+          maxZoom={2.5}
           // edge specs
           elevateEdgesOnSelect={false}
           defaultEdgeOptions={customEdgeOptions} // adding a new edge with this configs without notice

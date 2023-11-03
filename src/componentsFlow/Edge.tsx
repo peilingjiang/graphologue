@@ -205,7 +205,18 @@ export const EdgeCustomLabel = memo(
         requiredExtensions="http://www.w3.org/1999/xhtml"
       >
         <div className="super-wrapper super-wrapper-edge super-wrapper-static-text super-wrapper-static-text-edge">
-          <span className="edge-label">{edgeData.label}</span>
+          <span
+            className="edge-label"
+            style={
+              edgeData.label === 'ㅤ'
+                ? {
+                    display: 'none',
+                  }
+                : {}
+            }
+          >
+            {edgeData.label}
+          </span>
 
           {edgeData.label.length > 0 && (
             <div className="content-tooltip">{edgeData.label}</div>

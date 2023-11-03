@@ -1053,7 +1053,7 @@ export const Interchange = ({
       }}
     >
       <div className="interchange-item">
-        <Question key={`question-${data.id}`} />
+        {answer.length === 0 && <Question key={`question-${data.id}`} />}
         {answer.length > 0 && <Answer key={`answer-${data.id}`} />}
       </div>
     </InterchangeContext.Provider>

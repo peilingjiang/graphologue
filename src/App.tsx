@@ -1,8 +1,8 @@
 import React, { createContext, useEffect, useState } from 'react'
 
-import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
-import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
-import FileUploadRoundedIcon from '@mui/icons-material/FileUploadRounded'
+// import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
+// import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
+// import FileUploadRoundedIcon from '@mui/icons-material/FileUploadRounded'
 
 import { ChatContext } from './components/Contexts'
 import { Interchange } from './components/Interchange'
@@ -17,8 +17,8 @@ import {
 import { Prompt } from './utils/openAI'
 import { ListDisplayFormat } from './components/Answer'
 
-import GraphologueLogo from './media/graphologue.png'
-import { userProvidedAPIKey } from './constants'
+// import GraphologueLogo from './media/graphologue.png'
+// import { userProvidedAPIKey } from './constants'
 
 export interface OriginRange {
   start: number
@@ -138,7 +138,9 @@ export const ChatApp = () => {
 
   const [keyHidden, setKeyHidden] = useState<boolean>(false)
   const [openAIKeyInput, setOpenAIKeyInput] = useState<string>('')
-  const [openAIKey, setOpenAIKey] = useState<string>('')
+  const [openAIKey, setOpenAIKey] = useState<string>(
+    process.env.REACT_APP_OPENAI_API_KEY as string,
+  )
 
   // componentDidMount
   useEffect(() => {
@@ -162,67 +164,8 @@ export const ChatApp = () => {
     >
       <DebugModeContext.Provider value={{ debugMode, setDebugMode }}>
         <div className="chat-app">
-          <div className="interchange-item graphologue-logo">
-            <img src={GraphologueLogo} alt="Graphologue" />
-            <div className="public-information">
-              <a href="https://doi.org/10.1145/3586183.3606737">paper</a>
-              <a href="https://arxiv.org/abs/2305.11473">arXiv</a>
-              <a href="https://youtu.be/92QREkwrwRQ?si=8ofdvGw5AVMcSmwK">
-                video
-              </a>
-              <a href="https://github.com/ucsd-creativitylab/graphologue">
-                github
-              </a>
-              <a href="https://github.com/ucsd-creativitylab/graphologue/blob/public/src/utils/prompts.ts">
-                show me your prompts
-              </a>
-              <a href="https://creativity.ucsd.edu">creativity lab</a>
-            </div>
-          </div>
           {openAIKey.length === 0 ? (
-            <div className="interchange-item">
-              <div className="openai-api-key-question-box question-item interchange-component">
-                <textarea
-                  className="question-textarea openai-api-key-textarea"
-                  placeholder={`Welcome to Graphologue! To play with it, please paste you OpenAI API key here. If you'd like to change it, please refresh the page. We do not store your keys.\n\nEach question will result in 6–10 requests and may cost up to around 0.2 USD for GPT-4.`}
-                  rows={6}
-                  value={openAIKeyInput}
-                  onChange={e => {
-                    setOpenAIKeyInput(e.target.value)
-                  }}
-                  style={
-                    openAIKeyInput.length > 0 && keyHidden
-                      ? {
-                          color: 'transparent',
-                          textShadow: '0 0 0.3rem rgba(0,0,0,0.5)',
-                        }
-                      : {}
-                  }
-                />
-
-                <button
-                  className="bar-button"
-                  onClick={() => {
-                    setKeyHidden(!keyHidden)
-                  }}
-                >
-                  {keyHidden ? (
-                    <VisibilityOffRoundedIcon />
-                  ) : (
-                    <VisibilityRoundedIcon />
-                  )}
-                </button>
-                <button
-                  className="bar-button"
-                  onClick={() => {
-                    setOpenAIKey(openAIKeyInput)
-                    userProvidedAPIKey.current = openAIKeyInput
-                  }}
-                >
-                  <FileUploadRoundedIcon />
-                </button>
-              </div>
-            </div>
+            <div className="interchange-item"></div>
           ) : (
             questionsAndAnswers.map((questionAndAnswer, index) => (
               <Interchange

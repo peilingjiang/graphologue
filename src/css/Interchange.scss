@@ -5,8 +5,9 @@
   justify-content: flex-start;
   gap: $padding-mid;
 
-  margin: 0 auto $padding-xx-large auto;
-  max-width: 2200px;
+  margin: 0;
+  // margin: 0 auto $padding-xx-large auto;
+  // max-width: 2200px;
 
   box-sizing: border-box;
   * {
@@ -47,7 +48,7 @@
       font-size: $font-size-large;
       line-height: 130%;
       font-family: inherit;
-      font-weight: 300;
+      font-weight: 400;
       color: $black;
       // word-break: break-all;
 
@@ -73,6 +74,8 @@
 
   .question-item {
     @include bar-button;
+
+    transform: scale(1.75);
 
     transition: transform $transition-normal-slow ease;
 

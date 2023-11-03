@@ -95,7 +95,7 @@ export const newQuestionAndAnswer = (
 ): QuestionAndAnswer => {
   return {
     id: prefill?.id ?? `question-and-answer-${uuidv4()}`,
-    question: prefill?.question ?? '',
+    question: prefill?.question ?? 'Hey, introduce yourself.',
     answer: prefill?.answer ?? '',
     answerObjects: prefill?.answerObjects ?? [],
     modelStatus: {

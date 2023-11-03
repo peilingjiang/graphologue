@@ -246,7 +246,12 @@ const AnswerListView = ({
         className={`answer-item-display`}
         data-id={id}
       >
-        <div className="block-display-switches">
+        <div
+          className="block-display-switches"
+          style={{
+            display: 'none',
+          }}
+        >
           {/* <button
           // disabled={!canSwitchBlockDisplay}
           className="bar-button"
@@ -456,15 +461,6 @@ export const AnswerBlockItem = ({
           return
         }
 
-        // * old
-        // fitView({
-        //   ...viewFittingOptions,
-        //   duration: viewFittingOptions.duration, // TODO best?
-        //   minZoom: 1,
-        //   maxZoom: 1,
-        //   nodes: job.changedNodes.map(n => ({ id: n.id })),
-        // })
-
         const viewport = getViewport()
         const viewportRect = {
           x: -viewport.x,
@@ -497,7 +493,7 @@ export const AnswerBlockItem = ({
           {
             x: viewport.x + minMove.x,
             y: viewport.y + minMove.y,
-            zoom: 1,
+            zoom: 2,
           },
           {
             duration: firstCameraJob.current ? 0 : viewFittingOptions.duration,
@@ -510,7 +506,7 @@ export const AnswerBlockItem = ({
         viewFittingJobRunning.current = false
         runViewFittingJobs()
       }, viewFittingOptions.duration)
-    }, 10)
+    }, 5)
   }, [fitView, getViewport, setViewport])
 
   useEffectEqual(() => {
@@ -566,11 +562,13 @@ export const AnswerBlockItem = ({
     ]
 
     // view tracker
-    viewFittingJobs.current.push({
+    const newJob = {
       nodes: copyNodeSnippets(newNodeSnippets),
       changedNodes: copyNodeSnippets(changedNodeSnippets),
-    })
-    if (viewFittingJobs.current.length > 1) viewFittingJobs.current.shift()
+    }
+    if (newJob.changedNodes.length > 0) viewFittingJobs.current.push(newJob)
+    while (viewFittingJobs.current.length > 1) viewFittingJobs.current.shift()
+
     runViewFittingJobs()
 
     prevNodeSnippets.current = newNodeSnippets.map(n => ({
@@ -652,7 +650,7 @@ export const AnswerBlockItem = ({
           isForMergedDiagram ? ' merged-diagram-wrapper' : ''
         }`}
       >
-        {!isForMergedDiagram && (
+        {/* {!isForMergedDiagram && (
           <AnswerTextBlock
             index={index}
             questionAndAnswer={questionAndAnswer}
@@ -660,7 +658,7 @@ export const AnswerBlockItem = ({
             diagramDisplay={diagramDisplay}
             lastTextBlock={lastTextBlock}
           />
-        )}
+        )} */}
 
         <ReactFlowObjectContext.Provider
           value={{

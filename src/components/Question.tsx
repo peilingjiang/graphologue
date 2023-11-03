@@ -10,21 +10,21 @@ import React, {
 
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded'
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded'
-import ClearRoundedIcon from '@mui/icons-material/ClearRounded'
+// import ClearRoundedIcon from '@mui/icons-material/ClearRounded'
 
 import { AnswerObject } from '../App'
 import { ChatContext } from './Contexts'
 import {
-  getTextFromModelResponse,
+  // getTextFromModelResponse,
   getTextFromStreamResponse,
   models,
   OpenAIChatCompletionResponseStream,
-  parseOpenAIResponseToObjects,
+  // parseOpenAIResponseToObjects,
   streamOpenAICompletion,
 } from '../utils/openAI'
 import {
   predefinedPrompts,
-  predefinedPromptsForParsing,
+  // predefinedPromptsForParsing,
 } from '../utils/prompts'
 import {
   getAnswerObjectId,
@@ -40,11 +40,12 @@ import {
   parseEdges,
   parseNodes,
   RelationshipSaliency,
-  removeAnnotations,
+  // removeAnnotations,
   removeLastBracket,
 } from '../utils/responseProcessing'
 import { ListDisplayFormat } from './Answer'
 import { debug } from '../constants'
+import { sleep } from 'openai/core'
 
 export type FinishedAnswerObjectParsingTypes = 'summary' | 'slide'
 
@@ -65,6 +66,8 @@ export const Question = () => {
   const [activated, setActivated] = useState(false) // show text box or not
   const questionItemRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
     if (!activated && (questionsAndAnswersCount < 2 || answer.length > 0)) {
@@ -260,26 +263,26 @@ export const Question = () => {
       if (!answerObjectToCorrect) return
 
       // self correction
-      const correctedOriginTextContent = await handleSelfCorrection(
-        answerObjectToCorrect,
-      )
-      answerStorage.current.answer = answerStorage.current.answer.replace(
-        answerObjectToCorrect.originText.content,
-        correctedOriginTextContent,
-      )
-      answerObjectToCorrect.originText.content = correctedOriginTextContent
-      handleUpdateRelationshipEntities(
-        correctedOriginTextContent,
-        answerObjectId,
-      )
+      // const correctedOriginTextContent = await handleSelfCorrection(
+      //   answerObjectToCorrect,
+      // )
+      // answerStorage.current.answer = answerStorage.current.answer.replace(
+      //   answerObjectToCorrect.originText.content,
+      //   correctedOriginTextContent,
+      // )
+      // answerObjectToCorrect.originText.content = correctedOriginTextContent
+      // handleUpdateRelationshipEntities(
+      //   correctedOriginTextContent,
+      //   answerObjectId,
+      // )
 
-      // set corrected answer object
-      setQuestionsAndAnswers(prevQsAndAs =>
-        helpSetQuestionAndAnswer(prevQsAndAs, id, {
-          answer: answerStorage.current.answer,
-          answerObjects: answerStorage.current.answerObjects, // TODO account for answerObjectSynced changes
-        }),
-      )
+      // // set corrected answer object
+      // setQuestionsAndAnswers(prevQsAndAs =>
+      //   helpSetQuestionAndAnswer(prevQsAndAs, id, {
+      //     answer: answerStorage.current.answer,
+      //     answerObjects: answerStorage.current.answerObjects, // TODO account for answerObjectSynced changes
+      //   }),
+      // )
 
       /* -------------------------------------------------------------------------- */
       // parse slides and summary
@@ -301,26 +304,26 @@ export const Question = () => {
           async (parsingType: FinishedAnswerObjectParsingTypes) => {
             if (parsingError) return
 
-            const parsingSummary = parsingType === 'summary'
+            // const parsingSummary = parsingType === 'summary'
 
-            // ! request
-            const parsingResult = await parseOpenAIResponseToObjects(
-              predefinedPromptsForParsing[parsingType](
-                parsingSummary
-                  ? answerObject.originText.content
-                  : removeAnnotations(answerObject.originText.content),
-              ),
-              debug ? models.faster : models.smarter,
-            )
+            // // ! request
+            // const parsingResult = await parseOpenAIResponseToObjects(
+            //   predefinedPromptsForParsing[parsingType](
+            //     parsingSummary
+            //       ? answerObject.originText.content
+            //       : removeAnnotations(answerObject.originText.content),
+            //   ),
+            //   debug ? models.faster : models.smarter,
+            // )
 
-            if (parsingResult.error) {
-              handleResponseError(parsingResult)
-              parsingError = true
-              return
-            }
+            // if (parsingResult.error) {
+            //   handleResponseError(parsingResult)
+            //   parsingError = true
+            //   return
+            // }
 
-            parsingResults[parsingType] =
-              getTextFromModelResponse(parsingResult)
+            // parsingResults[parsingType] =
+            //   getTextFromModelResponse(parsingResult)
           },
         ),
       )
@@ -363,13 +366,7 @@ export const Question = () => {
         )
       }
     },
-    [
-      handleResponseError,
-      handleSelfCorrection,
-      handleUpdateRelationshipEntities,
-      id,
-      setQuestionsAndAnswers,
-    ],
+    [id, setQuestionsAndAnswers],
   )
 
   const handleStreamRawAnswer = useCallback(
@@ -543,7 +540,15 @@ export const Question = () => {
 
     // * actual ask model
     const initialPrompts = predefinedPrompts.initialAsk(question)
+
+    await sleep(2000)
+
+    // start playing audio
+    const audio = new Audio('graphologue-intro-2.wav')
+    audio.play()
+
     // ! request
+    await sleep(450)
     await streamOpenAICompletion(
       initialPrompts,
       debug ? models.faster : models.smarter,
@@ -619,6 +624,13 @@ export const Question = () => {
     <div
       ref={questionItemRef}
       className="question-item interchange-component drop-up"
+      style={
+        activated
+          ? {}
+          : {
+              display: 'none',
+            }
+      }
     >
       {activated ? (
         <>
@@ -642,13 +654,13 @@ export const Question = () => {
               <AutoFixHighRoundedIcon />
             )}
           </button>
-          <button
+          {/* <button
             disabled={questionsAndAnswersCount < 2}
             className="bar-button"
             onClick={handleDeleteInterchange}
           >
             <ClearRoundedIcon />
-          </button>
+          </button> */}
         </>
       ) : (
         <span

@@ -1,4 +1,6 @@
+import { exampleStreamData } from '../components/streamData'
 import { debug, userProvidedAPIKey } from '../constants'
+import { sleep } from './utils'
 
 export type ModelForMagic = 'gpt-4' | 'gpt-3.5-turbo'
 
@@ -105,7 +107,36 @@ export const streamOpenAICompletion = async (
   const options = getCompletionOptions(prompts, model, temperature, token, true)
   const requestOptions = getRequestOptions(options)
 
-  const response = await fetch(
+  const newStreamData = JSON.parse(JSON.stringify(exampleStreamData))
+
+  let shortWaitStarted = false
+
+  while (newStreamData.length) {
+    const data = newStreamData.shift()
+    if (!data) continue
+
+    if (data.start_short_wait) {
+      shortWaitStarted = true
+    }
+
+    if (data.end_short_wait) {
+      shortWaitStarted = false
+    }
+
+    // if data only has symbols
+    if (shortWaitStarted) {
+      await sleep(50)
+    } else {
+      if (data.long_wait !== undefined) await sleep(data.long_wait)
+      else if (textOnlyHasSymbols(getTextFromStreamResponse(data)))
+        await sleep(40)
+      else await sleep(95)
+    }
+
+    streamFunction(data, freshStream)
+  }
+
+  /* const response = await fetch(
     'https://api.openai.com/v1/chat/completions',
     requestOptions,
   )
@@ -170,7 +201,7 @@ export const streamOpenAICompletion = async (
     })
   }
 
-  return
+  return */
 }
 
 /* -------------------------------------------------------------------------- */
@@ -218,4 +249,8 @@ export const getTextFromStreamResponse = (
   response: OpenAIChatCompletionResponseStream,
 ): string => {
   return response.choices[0].delta.content ?? ''
+}
+
+const textOnlyHasSymbols = (text: string) => {
+  return !text.match(/[a-z0-9]/i)
 }
