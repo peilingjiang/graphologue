@@ -14,7 +14,7 @@ Graphologue transforms Large Language Model (LLM, such as GPT-4) responses into 
 npm install
 ```
 
-2. Create an `.env` file at the project ROOT, where you need to put the OpenAI API key. The file should look like:
+2. Create an `.env` file at the project ROOT (where the `.env.example` file is) to put the OpenAI API key. The file should look like:
 
 ```
 REACT_APP_OPENAI_API_KEY=sk-...

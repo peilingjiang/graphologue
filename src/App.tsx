@@ -222,6 +222,16 @@ export const ChatApp = () => {
                   <FileUploadRoundedIcon />
                 </button>
               </div>
+              <div className="public-information">
+                <a
+                  href="https://www.netlify.com"
+                  style={{
+                    fontSize: '0.5rem',
+                  }}
+                >
+                  Deploys by Netlify
+                </a>
+              </div>
             </div>
           ) : (
             questionsAndAnswers.map((questionAndAnswer, index) => (
