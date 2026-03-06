@@ -34,7 +34,7 @@ import {
   removeLastBracket,
 } from '../utils/responseProcessing'
 import {
-  OpenAIChatCompletionResponseStream,
+  OpenAIResponseStreamEvent,
   Prompt,
   getOpenAICompletion,
   getTextFromModelResponse,
@@ -346,6 +346,7 @@ export const Interchange = ({
       setQuestionsAndAnswers(prevQsAndAs =>
         helpSetQuestionAndAnswer(prevQsAndAs, id, {
           modelStatus: {
+            modelParsing: false,
             modelError: true,
           },
         }),
@@ -471,7 +472,7 @@ export const Interchange = ({
   }, [])
 
   const handleStreamRawAnswer = useCallback(
-    (data: OpenAIChatCompletionResponseStream, newParagraph: boolean) => {
+    (data: OpenAIResponseStreamEvent, newParagraph: boolean) => {
       const deltaContent = trimLineBreaks(getTextFromStreamResponse(data))
       if (!deltaContent) return
 
@@ -506,7 +507,7 @@ export const Interchange = ({
       setQuestionsAndAnswers(prevQsAndAs => {
         return helpSetQuestionAndAnswer(prevQsAndAs, id, {
           answer: newParagraph
-            ? workingMemory.current.answerObject?.originText.content ?? ''
+            ? (workingMemory.current.answerObject?.originText.content ?? '')
             : workingMemory.current.answerBefore.replace(
                 answerObjectOriginTextBefore,
                 workingMemory.current.answerObject?.originText.content ??
@@ -616,18 +617,23 @@ export const Interchange = ({
         answerObject.originText.content,
       )
 
-      await streamOpenAICompletion(
+      const streamResult = await streamOpenAICompletion(
         prompts,
         debug ? models.faster : models.smarter,
         handleStreamRawAnswer,
         false,
       )
+      if (!streamResult.ok) {
+        _handleResponseError(streamResult)
+        return
+      }
       console.log(`text block expand raw answering complete`)
       await _handleParsingCompleteAnswerObject(false)
       console.log(`text block expand parsing complete`)
     },
     [
       _handleParsingCompleteAnswerObject,
+      _handleResponseError,
       answer,
       answerObjects,
       handleStreamRawAnswer,
@@ -728,12 +734,16 @@ export const Interchange = ({
               nodeEntity.displayNodeLabel,
             )
 
-      await streamOpenAICompletion(
+      const streamResult = await streamOpenAICompletion(
         prompts,
         debug ? models.faster : models.smarter,
         handleStreamRawAnswer,
         false,
       )
+      if (!streamResult.ok) {
+        _handleResponseError(streamResult)
+        return
+      }
       console.log(`node expand ${type} raw answering complete`)
 
       await _handleParsingCompleteAnswerObject(false)
@@ -743,6 +753,7 @@ export const Interchange = ({
       answer,
       answerObjects,
       _handleParsingCompleteAnswerObject,
+      _handleResponseError,
       handleStreamRawAnswer,
       id,
       modelError,
@@ -1000,17 +1011,22 @@ export const Interchange = ({
     ]
     const prompts = predefinedPrompts._1MoreParagraph(prevConversation)
 
-    await streamOpenAICompletion(
+    const streamResult = await streamOpenAICompletion(
       prompts,
       debug ? models.faster : models.smarter,
       handleStreamRawAnswer,
       true,
     )
+    if (!streamResult.ok) {
+      _handleResponseError(streamResult)
+      return
+    }
     console.log(`new paragraph expand raw answering complete`)
     await _handleParsingCompleteAnswerObject(true)
     console.log(`new paragraph expand parsing complete`)
   }, [
     _handleParsingCompleteAnswerObject,
+    _handleResponseError,
     answer,
     answerObjects,
     handleStreamRawAnswer,

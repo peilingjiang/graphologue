@@ -184,7 +184,7 @@ export const ChatApp = () => {
               <div className="openai-api-key-question-box question-item interchange-component">
                 <textarea
                   className="question-textarea openai-api-key-textarea"
-                  placeholder={`Welcome to Graphologue! To play with it, please paste you OpenAI API key here. If you'd like to change it, please refresh the page. We do not store your keys.\n\nEach question will result in 6–10 requests and may cost up to around 0.2 USD for GPT-4.`}
+                  placeholder={`Welcome to Graphologue! To play with it, please paste your OpenAI API key here. If you'd like to change it, please refresh the page. We do not store your keys.\n\nEach question will result in 6–10 requests. Cost depends on your OpenAI pricing for GPT-5.4.`}
                   rows={6}
                   value={openAIKeyInput}
                   onChange={e => {
@@ -221,16 +221,6 @@ export const ChatApp = () => {
                 >
                   <FileUploadRoundedIcon />
                 </button>
-              </div>
-              <div className="public-information">
-                <a
-                  href="https://www.netlify.com"
-                  style={{
-                    fontSize: '0.5rem',
-                  }}
-                >
-                  Deploys by Netlify
-                </a>
               </div>
             </div>
           ) : (

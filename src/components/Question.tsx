@@ -18,7 +18,7 @@ import {
   getTextFromModelResponse,
   getTextFromStreamResponse,
   models,
-  OpenAIChatCompletionResponseStream,
+  OpenAIResponseStreamEvent,
   parseOpenAIResponseToObjects,
   streamOpenAICompletion,
 } from '../utils/openAI'
@@ -125,6 +125,8 @@ export const Question = () => {
         helpSetQuestionAndAnswer(prevQsAndAs, id, {
           // answerObjects: [], // ?
           modelStatus: {
+            modelAnswering: false,
+            modelParsing: false,
             modelError: true,
           },
         }),
@@ -373,7 +375,7 @@ export const Question = () => {
   )
 
   const handleStreamRawAnswer = useCallback(
-    (data: OpenAIChatCompletionResponseStream, freshStream = true) => {
+    (data: OpenAIResponseStreamEvent, freshStream = true) => {
       const deltaContent = trimLineBreaks(getTextFromStreamResponse(data))
       if (!deltaContent) return
 
@@ -544,12 +546,16 @@ export const Question = () => {
     // * actual ask model
     const initialPrompts = predefinedPrompts.initialAsk(question)
     // ! request
-    await streamOpenAICompletion(
+    const streamResult = await streamOpenAICompletion(
       initialPrompts,
       debug ? models.faster : models.smarter,
       handleStreamRawAnswer,
       true,
     )
+    if (!streamResult.ok) {
+      handleResponseError(streamResult)
+      return
+    }
     // * model done raw answering
     console.log('model done raw answering')
     setQuestionsAndAnswers(prevQsAndAs =>
@@ -590,6 +596,7 @@ export const Question = () => {
     )
   }, [
     _groundRest,
+    handleResponseError,
     handleParsingCompleteAnswerObject,
     handleStreamRawAnswer,
     id,
