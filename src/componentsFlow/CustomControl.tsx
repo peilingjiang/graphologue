@@ -6,10 +6,7 @@ import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded'
 import AlignHorizontalLeftRoundedIcon from '@mui/icons-material/AlignHorizontalLeftRounded'
 
 import { customAddNodes } from './Node'
-import {
-  adjustNewNodePositionAvoidIntersections,
-  getGraphBounds,
-} from '../utils/utils'
+import { adjustNewNodePositionAvoidIntersections } from '../utils/utils'
 import {
   hardcodedNodeSize,
   styles,
@@ -43,30 +40,44 @@ type CustomControlsProps = {
  * Controls in each diagram canvas.
  */
 export const CustomControls = memo((_: CustomControlsProps) => {
-  const { setViewport, fitView, fitBounds, getViewport, getNodes, addNodes } =
+  const { setViewport, fitView, getViewport, getNodes, addNodes } =
     useReactFlow()
   const { selectNodes } = useContext(FlowContext)
   const {
     // questionAndAnswer,
     handleSwitchSaliency,
   } = useContext(InterchangeContext)
-  const { handleOrganizeNodes } = useContext(AnswerBlockContext)
+  const { handleOrganizeNodes, resumeAutoCamera, runProgrammaticViewportMove } =
+    useContext(AnswerBlockContext)
   const { generatingFlow } = useContext(ReactFlowObjectContext)
 
   const _returnToOrigin = useCallback(() => {
-    setViewport({ x: 0, y: 0, zoom: 1 }, { duration: transitionDuration })
-  }, [setViewport])
+    runProgrammaticViewportMove(() => {
+      setViewport({ x: 0, y: 0, zoom: 1 }, { duration: transitionDuration })
+    }, transitionDuration)
+  }, [runProgrammaticViewportMove, setViewport])
 
   /* -------------------------------------------------------------------------- */
   // !
   const handleSetViewport = useCallback(() => {
     const nodes = getNodes()
+    resumeAutoCamera()
 
     if (!nodes.length) return _returnToOrigin()
 
-    const graphBonds = getGraphBounds(nodes)
-    fitBounds(graphBonds, viewFittingOptions)
-  }, [_returnToOrigin, fitBounds, getNodes])
+    runProgrammaticViewportMove(() => {
+      fitView({
+        ...viewFittingOptions,
+        nodes: nodes.map(node => ({ id: node.id })),
+      })
+    }, viewFittingOptions.duration)
+  }, [
+    _returnToOrigin,
+    fitView,
+    getNodes,
+    resumeAutoCamera,
+    runProgrammaticViewportMove,
+  ])
 
   // !
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

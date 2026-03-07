@@ -25,6 +25,7 @@ import ReactFlow, {
   useEdgesState,
   OnConnectStart,
   OnConnectEnd,
+  OnMoveStart,
 } from 'reactflow'
 import isEqual from 'react-fast-compare'
 
@@ -49,10 +50,14 @@ import { roundTo } from '../utils/utils'
 import { PromptSourceComponentsType } from '../utils/magicExplain'
 import { EntityType } from '../utils/socket'
 import { ModelForMagic, globalBestModelAvailable } from '../utils/openAI'
-import { ReactFlowObjectContext } from '../components/Answer'
+import {
+  AnswerBlockContext,
+  ReactFlowObjectContext,
+} from '../components/Answer'
 import { SimpleEdge } from './SimpleEdge'
 import { InterchangeContext } from '../components/Interchange'
 import { OriginRange } from '../App'
+import { autoCameraMinZoom } from '../utils/autoCamera'
 
 const reactFlowWrapperStyle = {
   width: '100%',
@@ -82,6 +87,7 @@ const Flow = () => {
     handleSetSyncedCoReferenceOriginRanges,
     handleAnswerObjectNodeMerge,
   } = useContext(InterchangeContext)
+  const { handleViewportMoveStart } = useContext(AnswerBlockContext)
   const { answerObjectId, generatingFlow } = useContext(ReactFlowObjectContext)
 
   const thisReactFlowInstance = useReactFlow()
@@ -125,13 +131,14 @@ const Flow = () => {
   )
 
   // viewport
-  const [roughZoomLevel, setRoughZoomLevel] = useState(
-    roundTo(getViewport().zoom, 2),
-  )
+  const [, setRoughZoomLevel] = useState(() => roundTo(getViewport().zoom, 2))
   useOnViewportChange({
     onChange: (v: Viewport) => {
-      if (roughZoomLevel !== roundTo(getViewport().zoom, 2))
-        setRoughZoomLevel(roundTo(getViewport().zoom, 2))
+      const nextZoomLevel = roundTo(v.zoom, 2)
+
+      setRoughZoomLevel(prevZoomLevel =>
+        prevZoomLevel === nextZoomLevel ? prevZoomLevel : nextZoomLevel,
+      )
     },
   })
 
@@ -729,6 +736,12 @@ const Flow = () => {
   )
 
   const handleScroll = useCallback((e: any) => {}, [])
+  const handleMoveStart = useCallback(
+    (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+      handleViewportMoveStart(event)
+    },
+    [handleViewportMoveStart],
+  )
 
   return (
     <FlowContext.Provider
@@ -762,10 +775,12 @@ const Flow = () => {
           onConnect={onConnect}
           onConnectStart={onConnectStart as OnConnectStart}
           onConnectEnd={onConnectEnd as OnConnectEnd}
+          onMoveStart={handleMoveStart as OnMoveStart}
           // flow view
           style={reactFlowWrapperStyle}
           fitView={false}
           attributionPosition="bottom-right"
+          minZoom={autoCameraMinZoom}
           maxZoom={1}
           // edge specs
           elevateEdgesOnSelect={false}

@@ -1,12 +1,13 @@
 import {
-  ChangeEvent,
   ForwardedRef,
   forwardRef,
   memo,
   MouseEvent,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
+  lazy,
   useRef,
   useState,
 } from 'react'
@@ -23,7 +24,7 @@ import {
   useReactFlow,
   Edge,
 } from 'reactflow'
-import { ColorResult, TwitterPicker } from 'react-color'
+import type { ColorResult } from 'react-color'
 import tinycolor from 'tinycolor2'
 
 import ManageSearchRoundedIcon from '@mui/icons-material/ManageSearchRounded'
@@ -108,6 +109,14 @@ export const anyNodeIndividualInHighlightedAnswerObject = (
 
 const connectionNodeIdSelector = (state: ReactFlowState) =>
   state.connectionNodeId
+
+const LazyTwitterPicker = lazy(async () => {
+  const { TwitterPicker } = await import('react-color')
+
+  return {
+    default: TwitterPicker,
+  }
+})
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -199,18 +208,15 @@ export const CustomNode = memo(
     /* -------------------------------------------------------------------------- */
     // ! color
     const [showColorPicker, setShowColorPicker] = useState(false)
-    const handleToggleShowColorPicker = useCallback(
-      (e: MouseEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
+    const handleToggleShowColorPicker = useCallback((e: MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
 
-        setShowColorPicker(!showColorPicker)
-      },
-      [showColorPicker],
-    )
+      setShowColorPicker(showing => !showing)
+    }, [])
 
     const handleChangeColor = useCallback(
-      (color: ColorResult, event: ChangeEvent<HTMLInputElement>) => {
+      (color: ColorResult) => {
         setNodes((nodes: Node[]) => {
           return nodes.map(node => {
             if (node.id === id) {
@@ -353,8 +359,10 @@ export const CustomNode = memo(
                         styleBackground === styles.nodeColorDefaultWhite
                           ? '#333333'
                           : tinycolor(styleBackground).isDark()
-                          ? 'white'
-                          : tinycolor(styleBackground).darken(45).toHexString(),
+                            ? 'white'
+                            : tinycolor(styleBackground)
+                                .darken(45)
+                                .toHexString(),
                     }
               }
             >
@@ -458,10 +466,12 @@ export const CustomNode = memo(
                       }}
                     />
                     {showColorPicker && (
-                      <TwitterPicker
-                        color={styleBackground}
-                        onChange={handleChangeColor}
-                      />
+                      <Suspense fallback={null}>
+                        <LazyTwitterPicker
+                          color={styleBackground}
+                          onChange={handleChangeColor}
+                        />
+                      </Suspense>
                     )}
                   </>
                 </MagicToolboxItem>

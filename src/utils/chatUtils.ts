@@ -88,6 +88,22 @@ export const trimLineBreaks = (text: string) => {
   return text.replace(/(\n)*\n/g, '\n')
 }
 
+export interface TextReplacement {
+  target: string
+  replacement: string
+}
+
+export const applyTextReplacements = (
+  text: string,
+  replacements: TextReplacement[],
+) => {
+  return replacements.reduce(
+    (updatedText, { target, replacement }) =>
+      updatedText.replace(target, replacement),
+    text,
+  )
+}
+
 /* -------------------------------------------------------------------------- */
 
 export const newQuestionAndAnswer = (
@@ -230,8 +246,12 @@ export const helpSetQuestionAndAnswer = (
   return prevQsAndAs.map((prevQAndA: QuestionAndAnswer) => {
     return prevQAndA.id === questionAndAnswerId
       ? {
-          ...deepCopyQuestionAndAnswer(prevQAndA),
+          ...prevQAndA,
           ...newQAndA,
+          answerObjects:
+            newQAndA.answerObjects !== undefined
+              ? newQAndA.answerObjects.map(a => deepCopyAnswerObject(a))
+              : prevQAndA.answerObjects,
           modelStatus: {
             ...prevQAndA.modelStatus,
             ...(newQAndA.modelStatus ?? {}),

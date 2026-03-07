@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from 'react'
+import React, { createContext, useEffect, useMemo, useState } from 'react'
 
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
@@ -140,27 +140,38 @@ export const ChatApp = () => {
   const [openAIKeyInput, setOpenAIKeyInput] = useState<string>('')
   const [openAIKey, setOpenAIKey] = useState<string>('')
 
+  const chatContextValue = useMemo(
+    () => ({
+      questionsAndAnswersCount: questionsAndAnswers.length,
+      setQuestionsAndAnswers,
+    }),
+    [questionsAndAnswers.length],
+  )
+
+  const debugModeContextValue = useMemo(
+    () => ({
+      debugMode,
+      setDebugMode,
+    }),
+    [debugMode],
+  )
+  const lastAnswerLength =
+    questionsAndAnswers[questionsAndAnswers.length - 1]?.answer.length ?? 0
+
   // componentDidMount
   useEffect(() => {
     if (questionsAndAnswers.length === 0)
       setQuestionsAndAnswers([newQuestionAndAnswer()])
-    else if (
-      questionsAndAnswers[questionsAndAnswers.length - 1].answer.length > 0
-    )
+    else if (lastAnswerLength > 0)
       setQuestionsAndAnswers(prevQuestionsAndAnswers => [
         ...prevQuestionsAndAnswers,
         newQuestionAndAnswer(),
       ])
-  }, [questionsAndAnswers])
+  }, [lastAnswerLength, questionsAndAnswers.length])
 
   return (
-    <ChatContext.Provider
-      value={{
-        questionsAndAnswersCount: questionsAndAnswers.length,
-        setQuestionsAndAnswers,
-      }}
-    >
-      <DebugModeContext.Provider value={{ debugMode, setDebugMode }}>
+    <ChatContext.Provider value={chatContextValue}>
+      <DebugModeContext.Provider value={debugModeContextValue}>
         <div className="chat-app">
           <div className="interchange-item graphologue-logo">
             <img src={GraphologueLogo} alt="Graphologue" />

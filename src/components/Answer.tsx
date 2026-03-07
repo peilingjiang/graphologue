@@ -3,12 +3,19 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
-import { Node, ReactFlowProvider, useReactFlow } from 'reactflow'
+import {
+  getNodesBounds,
+  getViewportForBounds,
+  ReactFlowProvider,
+  useNodesInitialized,
+  useReactFlow,
+  Viewport,
+} from 'reactflow'
 import dagre from 'dagre'
-import isEqual from 'react-fast-compare'
 import { PuffLoader } from 'react-spinners'
 
 import ShortTextRoundedIcon from '@mui/icons-material/ShortTextRounded'
@@ -37,14 +44,6 @@ import { SlideAnswerText } from './SlideAnswer'
 import { useEffectEqual } from '../utils/useEffectEqual'
 import { answerObjectsToReactFlowObject } from '../utils/graphToFlowObject'
 import {
-  CustomNodeData,
-  NodeSnippet,
-  copyNodeSnippets,
-  hardcodedNodeWidthEstimation,
-} from '../componentsFlow/Node'
-import { hardcodedNodeSize, viewFittingOptions } from '../constants'
-import { ViewFittingJob } from '../componentsFlow/ViewFitter'
-import {
   getRangeFromStart,
   mergeEdgeEntities,
   mergeNodeEntities,
@@ -52,11 +51,16 @@ import {
   removeAnnotations,
   splitAnnotatedSentences,
 } from '../utils/responseProcessing'
-import { getGraphBounds } from '../utils/utils'
 import {
-  BoundingAInBoundingB,
-  minMoveBringBoundingAIntoB,
-} from '../utils/viewGeometry'
+  AutoCameraController,
+  autoCameraDuration,
+  autoCameraMaxZoom,
+  autoCameraMinZoom,
+  getAutoCameraAnimationProgress,
+  getAutoCameraNextViewport,
+  getAutoCameraPadding,
+  isAutoCameraViewportSettled,
+} from '../utils/autoCamera'
 import { makeFlowTransition } from '../utils/flowChangingTransition'
 
 export interface ReactFlowObjectContextProps {
@@ -77,6 +81,9 @@ export const ReactFlowObjectContext =
 ////
 export interface AnswerBlockContextProps {
   handleOrganizeNodes: () => void
+  handleViewportMoveStart: (event?: MouseEvent | TouchEvent) => void
+  resumeAutoCamera: () => void
+  runProgrammaticViewportMove: (fn: () => void, duration?: number) => void
 }
 
 export const AnswerBlockContext = createContext<AnswerBlockContextProps>(
@@ -230,6 +237,8 @@ const AnswerListView = ({
     [handleSetSyncedAnswerObjectIdsHidden, synced.answerObjectIdsHidden],
   )
 
+  const primaryMergedAnswerObject = answerObjects[0]
+
   return (
     <AnswerListContext.Provider
       value={{
@@ -329,18 +338,20 @@ const AnswerListView = ({
                   />
                 ))}
               </div>
-              <ReactFlowProvider
-                key={`answer-block-flow-provider-${id}-${answerObjects[0].id}`}
-              >
-                <AnswerBlockItem
-                  key={`answer-block-item-${id}-${answerObjects[0].id}`}
-                  index={0}
-                  questionAndAnswer={questionAndAnswer}
-                  answerObject={answerObjects[0]}
-                  diagramDisplay={diagramDisplay}
-                  lastTextBlock={false}
-                />
-              </ReactFlowProvider>
+              {primaryMergedAnswerObject && (
+                <ReactFlowProvider
+                  key={`answer-block-flow-provider-${id}-${primaryMergedAnswerObject.id}`}
+                >
+                  <AnswerBlockItem
+                    key={`answer-block-item-${id}-${primaryMergedAnswerObject.id}`}
+                    index={0}
+                    questionAndAnswer={questionAndAnswer}
+                    answerObject={primaryMergedAnswerObject}
+                    diagramDisplay={diagramDisplay}
+                    lastTextBlock={false}
+                  />
+                </ReactFlowProvider>
+              )}
             </>
           ) : (
             answerObjects.map((answerObject, index) => (
@@ -390,130 +401,230 @@ export const AnswerBlockItem = ({
   const isForMergedDiagram = diagramDisplay === 'merged'
   const useSummary = answerObject.answerObjectSynced.listDisplay === 'summary'
 
-  const { setNodes, setEdges, fitView, getViewport, setViewport } =
-    useReactFlow()
+  const {
+    getNodes,
+    getViewport,
+    setNodes,
+    setEdges,
+    setViewport,
+    viewportInitialized,
+  } = useReactFlow()
+  const nodesInitialized = useNodesInitialized()
 
+  const answerBlockRef = useRef<HTMLDivElement | null>(null)
   const stableDagreGraph = useRef(new dagre.graphlib.Graph())
-  const viewFittingJobs = useRef<ViewFittingJob[]>([])
-  const viewFittingJobRunning = useRef(false)
-  const firstCameraJob = useRef(true)
-
-  const prevNodeSnippets = useRef<NodeSnippet[]>([])
-  // const prevEdges = useRef<Edge[]>([])
+  const autoCameraController = useRef(new AutoCameraController())
+  const autoCameraFrame = useRef<number | null>(null)
+  const autoCameraAnimationStartViewport = useRef<Viewport | null>(null)
+  const autoCameraAnimationStartedAt = useRef<number | null>(null)
+  const autoCameraTargetViewport = useRef<Viewport | null>(null)
+  const autoCameraMoveCleanup = useRef<(() => void) | null>(null)
+  const programmaticViewportMoves = useRef(0)
+  const programmaticViewportTimeouts = useRef<number[]>([])
+  const [autoCameraVersion, setAutoCameraVersion] = useState(0)
 
   useEffect(() => {
     stableDagreGraph.current = new dagre.graphlib.Graph()
   }, [useSummary, saliencyFilter, answerObjectIdsHidden])
 
+  useEffect(() => {
+    autoCameraController.current.resume()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (autoCameraFrame.current !== null) {
+        window.cancelAnimationFrame(autoCameraFrame.current)
+      }
+
+      autoCameraMoveCleanup.current?.()
+      autoCameraMoveCleanup.current = null
+
+      programmaticViewportTimeouts.current.forEach(timeoutId => {
+        window.clearTimeout(timeoutId)
+      })
+    }
+  }, [])
+
   // ! put all node and edge entities together
   // const nodeEntities = mergeNodeEntities(answerObjects, answerObjectIdsHidden)
   // const edgeEntities = mergeEdgeEntities(answerObjects, answerObjectIdsHidden)
-  const nodeEntities = isForMergedDiagram
-    ? mergeNodeEntities(answerObjects, answerObjectIdsHidden)
-    : useSummary
-    ? answerObject.summary.nodeEntities
-    : answerObject.originText.nodeEntities
-  const edgeEntities: EdgeEntity[] = isForMergedDiagram
-    ? mergeEdgeEntities(answerObjects, answerObjectIdsHidden)
-    : useSummary
-    ? answerObject.summary.edgeEntities
-    : answerObject.originText.edgeEntities
+  const nodeEntities = useMemo(() => {
+    if (isForMergedDiagram)
+      return mergeNodeEntities(answerObjects, answerObjectIdsHidden)
 
-  const runViewFittingJobs = useCallback(() => {
-    if (viewFittingJobRunning.current || viewFittingJobs.current.length === 0)
-      return
+    return useSummary
+      ? answerObject.summary.nodeEntities
+      : answerObject.originText.nodeEntities
+  }, [
+    answerObject,
+    answerObjectIdsHidden,
+    answerObjects,
+    isForMergedDiagram,
+    useSummary,
+  ])
 
-    const job = viewFittingJobs.current.pop()
-    if (!job) return
+  const edgeEntities: EdgeEntity[] = useMemo(() => {
+    if (isForMergedDiagram)
+      return mergeEdgeEntities(answerObjects, answerObjectIdsHidden)
 
-    viewFittingJobRunning.current = true
+    return useSummary
+      ? answerObject.summary.edgeEntities
+      : answerObject.originText.edgeEntities
+  }, [
+    answerObject,
+    answerObjectIdsHidden,
+    answerObjects,
+    isForMergedDiagram,
+    useSummary,
+  ])
 
-    setTimeout(() => {
-      const nodesBounding = getGraphBounds(job.nodes)
-      ////
-      const reactFlowWrapperElement = document.querySelector(
+  const queueAutoCamera = useCallback((nodeIds: string[]) => {
+    autoCameraController.current.request(nodeIds)
+    setAutoCameraVersion(version => version + 1)
+  }, [])
+
+  const resumeAutoCamera = useCallback(() => {
+    autoCameraController.current.resume()
+    setAutoCameraVersion(version => version + 1)
+  }, [])
+
+  const beginProgrammaticViewportMove = useCallback(() => {
+    programmaticViewportMoves.current += 1
+
+    let released = false
+
+    return () => {
+      if (released) return
+
+      released = true
+      programmaticViewportMoves.current = Math.max(
+        0,
+        programmaticViewportMoves.current - 1,
+      )
+    }
+  }, [])
+
+  const runProgrammaticViewportMove = useCallback(
+    (fn: () => void, duration = autoCameraDuration) => {
+      const releaseProgrammaticMove = beginProgrammaticViewportMove()
+      fn()
+
+      const timeoutId = window.setTimeout(() => {
+        releaseProgrammaticMove()
+        programmaticViewportTimeouts.current =
+          programmaticViewportTimeouts.current.filter(id => id !== timeoutId)
+      }, duration + 50)
+
+      programmaticViewportTimeouts.current.push(timeoutId)
+    },
+    [beginProgrammaticViewportMove],
+  )
+
+  const stopAutoCameraAnimation = useCallback(() => {
+    if (autoCameraFrame.current !== null) {
+      window.cancelAnimationFrame(autoCameraFrame.current)
+      autoCameraFrame.current = null
+    }
+
+    autoCameraAnimationStartViewport.current = null
+    autoCameraAnimationStartedAt.current = null
+    autoCameraTargetViewport.current = null
+    autoCameraMoveCleanup.current?.()
+    autoCameraMoveCleanup.current = null
+  }, [])
+
+  const getAutoCameraTargetViewport = useCallback(
+    (nodeIds: string[]) => {
+      const flowWrapperElement = answerBlockRef.current?.querySelector(
         '.react-flow-wrapper',
-      ) as HTMLElement // they are all the same size
-      if (!reactFlowWrapperElement) return // ! hard return
+      ) as HTMLElement | null
+      if (!flowWrapperElement) return null
 
-      const viewBounding = reactFlowWrapperElement.getBoundingClientRect()
+      const { width, height } = flowWrapperElement.getBoundingClientRect()
+      if (!width || !height) return null
 
-      if (
-        nodesBounding.width < viewBounding.width * 1.5 &&
-        nodesBounding.height < viewBounding.height * 1.5
-      ) {
-        fitView({
-          ...viewFittingOptions,
-          duration: firstCameraJob.current ? 0 : viewFittingOptions.duration,
-        })
-        firstCameraJob.current = false
-      } else {
-        // find changed nodes
+      const requestedNodeIds = new Set(nodeIds)
+      const targetNodes = getNodes().filter(node =>
+        requestedNodeIds.has(node.id),
+      )
+      if (!targetNodes.length) return null
 
-        if (job.changedNodes.length === 0) {
-          viewFittingJobRunning.current = false
-          runViewFittingJobs()
-          return
-        }
+      const nodeBounds = getNodesBounds(targetNodes)
 
-        // * old
-        // fitView({
-        //   ...viewFittingOptions,
-        //   duration: viewFittingOptions.duration, // TODO best?
-        //   minZoom: 1,
-        //   maxZoom: 1,
-        //   nodes: job.changedNodes.map(n => ({ id: n.id })),
-        // })
+      return getViewportForBounds(
+        nodeBounds,
+        width,
+        height,
+        autoCameraMinZoom,
+        autoCameraMaxZoom,
+        getAutoCameraPadding(),
+      )
+    },
+    [getNodes],
+  )
 
-        const viewport = getViewport()
-        const viewportRect = {
-          x: -viewport.x,
-          y: -viewport.y,
-          width: viewBounding.width,
-          height: viewBounding.height, // assume the zoom is 1
-        }
+  const startAutoCameraAnimation = useCallback(() => {
+    if (autoCameraFrame.current !== null) return
+    if (!autoCameraTargetViewport.current) return
 
-        // get bounding of changed nodes
-        const changedNodesBounding = getGraphBounds(job.changedNodes)
+    if (!autoCameraMoveCleanup.current) {
+      autoCameraMoveCleanup.current = beginProgrammaticViewportMove()
+    }
 
-        // check if the viewport rect includes the target nodes rect
-        if (BoundingAInBoundingB(changedNodesBounding, viewportRect)) {
-          viewFittingJobRunning.current = false
-          runViewFittingJobs()
-
-          return // TODO do anything? move a little?
-        }
-
-        const minMove = minMoveBringBoundingAIntoB(
-          changedNodesBounding,
-          viewportRect,
-          40,
-          40,
-          // viewBounding.x * 0.1,
-          // viewBounding.y * 0.1
-        )
-
-        setViewport(
-          {
-            x: viewport.x + minMove.x,
-            y: viewport.y + minMove.y,
-            zoom: 1,
-          },
-          {
-            duration: firstCameraJob.current ? 0 : viewFittingOptions.duration,
-          },
-        )
-        firstCameraJob.current = false
+    const advanceViewport = (timestamp: number) => {
+      const targetViewport = autoCameraTargetViewport.current
+      const startViewport = autoCameraAnimationStartViewport.current
+      const startedAt = autoCameraAnimationStartedAt.current
+      if (!targetViewport) {
+        stopAutoCameraAnimation()
+        return
       }
 
-      setTimeout(() => {
-        viewFittingJobRunning.current = false
-        runViewFittingJobs()
-      }, viewFittingOptions.duration)
-    }, 10)
-  }, [fitView, getViewport, setViewport])
+      if (!startViewport || startedAt === null) {
+        stopAutoCameraAnimation()
+        return
+      }
 
-  useEffectEqual(() => {
+      const nextViewport = getAutoCameraNextViewport(
+        startViewport,
+        targetViewport,
+        getAutoCameraAnimationProgress(startedAt, timestamp),
+      )
+
+      setViewport(nextViewport)
+
+      if (
+        isAutoCameraViewportSettled(nextViewport, targetViewport) &&
+        autoCameraTargetViewport.current === targetViewport
+      ) {
+        setViewport(targetViewport)
+        stopAutoCameraAnimation()
+        return
+      }
+
+      autoCameraFrame.current = window.requestAnimationFrame(advanceViewport)
+    }
+
+    autoCameraFrame.current = window.requestAnimationFrame(advanceViewport)
+  }, [beginProgrammaticViewportMove, setViewport, stopAutoCameraAnimation])
+
+  const handleViewportMoveStart = useCallback(
+    (event?: MouseEvent | TouchEvent) => {
+      if (event?.isTrusted && autoCameraFrame.current !== null) {
+        stopAutoCameraAnimation()
+      }
+
+      if (programmaticViewportMoves.current > 0 && !event?.isTrusted) return
+
+      stopAutoCameraAnimation()
+      autoCameraController.current.pause()
+      setAutoCameraVersion(version => version + 1)
+    },
+    [stopAutoCameraAnimation],
+  )
+
+  const syncReactFlowGraph = useCallback(() => {
     const { nodes: newNodes, edges: newEdges } = answerObjectsToReactFlowObject(
       stableDagreGraph.current,
       nodeEntities,
@@ -524,61 +635,19 @@ export const AnswerBlockItem = ({
 
     setNodes(newNodes)
     setEdges(newEdges)
+    queueAutoCamera(newNodes.map(node => node.id))
+  }, [
+    answerObject.answerObjectSynced.collapsedNodes,
+    edgeEntities,
+    nodeEntities,
+    queueAutoCamera,
+    setEdges,
+    setNodes,
+    synced,
+  ])
 
-    const newNodeSnippets: NodeSnippet[] = newNodes.map(
-      (n: Node<CustomNodeData>) => ({
-        id: n.id,
-        label: (n.data as CustomNodeData).label,
-        position: {
-          x: n.position.x,
-          y: n.position.y,
-        },
-        width:
-          n.width ??
-          hardcodedNodeWidthEstimation(n.data.label, n.data.generated.pseudo),
-        height: n.height ?? hardcodedNodeSize.height,
-      }),
-    )
-
-    // const nodeSnippetExtraction = (n: NodeSnippet) => ({
-    //   id: n.id,
-    //   label: n.label,
-    // })
-
-    const changedNodeSnippets = [
-      ...newNodeSnippets.filter(n => {
-        const foundPrevNode = prevNodeSnippets.current.find(
-          pN => pN.id === n.id,
-        )
-        return (
-          !foundPrevNode ||
-          // !isEqual(
-          //   nodeSnippetExtraction(foundPrevNode),
-          //   nodeSnippetExtraction(n)
-          // )
-          !isEqual(foundPrevNode, n)
-        )
-      }),
-      ...prevNodeSnippets.current.filter(
-        pN =>
-          !newNodeSnippets.find(n => n.id === pN.id || n.label !== pN.label),
-      ),
-    ]
-
-    // view tracker
-    viewFittingJobs.current.push({
-      nodes: copyNodeSnippets(newNodeSnippets),
-      changedNodes: copyNodeSnippets(changedNodeSnippets),
-    })
-    if (viewFittingJobs.current.length > 1) viewFittingJobs.current.shift()
-    runViewFittingJobs()
-
-    prevNodeSnippets.current = newNodeSnippets.map(n => ({
-      ...n,
-      position: {
-        ...n.position,
-      },
-    }))
+  useEffectEqual(() => {
+    syncReactFlowGraph()
   }, [
     // we don't care about individuals
     // nodeEntities.map(nE =>
@@ -597,47 +666,37 @@ export const AnswerBlockItem = ({
     synced.answerObjectIdsHidden,
     // synced.highlightedCoReferenceOriginRanges,
     answerObject.answerObjectSynced.collapsedNodes,
-    setNodes,
-    setEdges,
-    runViewFittingJobs,
+    syncReactFlowGraph,
+  ])
+
+  useEffect(() => {
+    const autoCameraRequest = autoCameraController.current.consume(
+      nodesInitialized && viewportInitialized,
+    )
+    if (!autoCameraRequest) return
+
+    autoCameraTargetViewport.current = getAutoCameraTargetViewport(
+      autoCameraRequest.nodeIds,
+    )
+    if (!autoCameraTargetViewport.current) return
+
+    autoCameraAnimationStartViewport.current = getViewport()
+    autoCameraAnimationStartedAt.current = performance.now()
+
+    startAutoCameraAnimation()
+  }, [
+    autoCameraVersion,
+    getViewport,
+    getAutoCameraTargetViewport,
+    nodesInitialized,
+    startAutoCameraAnimation,
+    viewportInitialized,
   ])
 
   const handleOrganizeNodes = useCallback(() => {
-    const { nodes: newNodes, edges: newEdges } = answerObjectsToReactFlowObject(
-      stableDagreGraph.current,
-      nodeEntities,
-      edgeEntities,
-      synced,
-      answerObject.answerObjectSynced.collapsedNodes,
-    )
-
-    setNodes(newNodes)
-    setEdges(newEdges)
-
-    const newNodeSnippets: NodeSnippet[] = newNodes.map(
-      (n: Node<CustomNodeData>) => ({
-        id: n.id,
-        label: (n.data as CustomNodeData).label,
-        position: {
-          x: n.position.x,
-          y: n.position.y,
-        },
-        width:
-          n.width ??
-          hardcodedNodeWidthEstimation(n.data.label, n.data.generated.pseudo),
-        height: n.height ?? hardcodedNodeSize.height,
-      }),
-    )
-
-    prevNodeSnippets.current = newNodeSnippets
-  }, [
-    answerObject.answerObjectSynced.collapsedNodes,
-    edgeEntities,
-    nodeEntities,
-    setEdges,
-    setNodes,
-    synced,
-  ])
+    resumeAutoCamera()
+    syncReactFlowGraph()
+  }, [resumeAutoCamera, syncReactFlowGraph])
 
   /* -------------------------------------------------------------------------- */
 
@@ -645,9 +704,13 @@ export const AnswerBlockItem = ({
     <AnswerBlockContext.Provider
       value={{
         handleOrganizeNodes,
+        handleViewportMoveStart,
+        resumeAutoCamera,
+        runProgrammaticViewportMove,
       }}
     >
       <div
+        ref={answerBlockRef}
         className={`answer-block-item-wrapper${
           isForMergedDiagram ? ' merged-diagram-wrapper' : ''
         }`}

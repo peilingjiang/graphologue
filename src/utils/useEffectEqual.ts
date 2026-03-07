@@ -1,15 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { DependencyList, EffectCallback, useEffect, useRef } from 'react'
 import isEqual from 'react-fast-compare'
 
-export const useEffectEqual = (effect: Function, deps: any[]) => {
-  const prevDepsRef = useRef(deps)
+export const useEffectEqual = (
+  effect: EffectCallback,
+  deps: DependencyList,
+) => {
+  const prevDepsRef = useRef<DependencyList>()
+  const effectRef = useRef(effect)
+  const effectVersionRef = useRef(0)
 
-  useEffect(() => {
-    if (isEqual(prevDepsRef.current, deps)) {
-      return
-    }
+  effectRef.current = effect
 
-    effect()
+  if (!isEqual(prevDepsRef.current, deps)) {
     prevDepsRef.current = deps
-  }, [deps, effect])
+    effectVersionRef.current += 1
+  }
+
+  const effectVersion = effectVersionRef.current
+
+  useEffect(() => effectRef.current(), [effectVersion])
 }
