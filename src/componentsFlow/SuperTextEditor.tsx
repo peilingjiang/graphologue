@@ -208,8 +208,8 @@ export const SuperTextEditor = memo(
                 background === styles.nodeColorDefaultWhite
                   ? '#333333'
                   : tinycolor(background).isDark()
-                  ? 'white'
-                  : tinycolor(background).darken(45).toHexString(),
+                    ? 'white'
+                    : tinycolor(background).darken(45).toHexString(),
             }}
           ></textarea>
         ) : (
